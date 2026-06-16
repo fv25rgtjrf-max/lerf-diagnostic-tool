@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LERF — Diagnostic Tool</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: #f0f4f8; color: #2d3748;
+  height: 100vh; display: flex; flex-direction: column; overflow: hidden;
+}
+#header {
+  background: #0d2b4e; color: white;
+  padding: 10px 20px; display: flex; align-items: center;
+  justify-content: space-between; flex-shrink: 0;
+}
+#header-left h1 { font-size: 14px; font-weight: 700; letter-spacing: .3px; }
+#header-left p  { font-size: 10px; opacity: .55; margin-top: 2px; }
+#header-right   { display: flex; align-items: center; gap: 14px; }
+#prog-box { text-align: right; }
+#prog-count { font-size: 22px; font-weight: 800; color: #63b3ed; line-height: 1; }
+#prog-label { font-size: 9px; opacity: .55; margin-top: 1px; }
+#prog-bar { width: 110px; height: 4px; background: #1a3a5c; border-radius: 2px; margin-top: 5px; }
+#prog-fill { height: 100%; background: #63b3ed; border-radius: 2px; width: 0%; transition: width .4s; }
+.hbtn {
+  padding: 6px 11px; border-radius: 5px;
+  border: 1px solid rgba(255,255,255,.2);
+  background: transparent; color: white; font-size: 11px; cursor: pointer;
+}
+.hbtn:hover { background: rgba(255,255,255,.12); }
+#main { display: flex; flex: 1; overflow: hidden; }
+#ring-panel {
+  flex: 0 0 56%; background: white;
+  border-right: 1px solid #e2e8f0;
+  display: flex; align-items: center; justify-content: center;
+  padding: 6px; overflow: hidden;
+}
+#ring-svg { width: 100%; height: 100%; max-width: 640px; max-height: 640px; }
+#right { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+#matrix-panel { flex: 1; overflow-y: auto; padding: 12px 13px; }
+#matrix-panel h2 {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .8px; color: #718096; margin-bottom: 10px;
+}
+#mt { width: 100%; border-collapse: collapse; font-size: 10px; }
+#mt th {
+  padding: 6px 7px; text-align: center; font-weight: 800;
+  font-size: 10px; text-transform: uppercase; letter-spacing: .5px;
+  border: 2px solid #718096; background: #2d3748; color: #ffffff;
+}
+#mt td { border: 2px solid #a0aec0; padding: 5px 7px; vertical-align: top; }
+.lname {
+  font-weight: 700; font-size: 9px; color: white; text-align: center;
+  writing-mode: vertical-rl; text-orientation: mixed;
+  white-space: nowrap; padding: 8px 4px; letter-spacing: .5px;
+}
+.ind-row {
+  display: flex; align-items: flex-start; gap: 5px;
+  margin-bottom: 5px; cursor: pointer; padding: 2px 3px;
+  border-radius: 3px; transition: background .12s;
+}
+.ind-row:last-child { margin-bottom: 0; }
+.ind-row:hover { background: #edf2f7; }
+.ind-row.su-row { background: #fafffe; }
+.ind-row.su-row:hover { background: #e6ffee; }
+.ind-code {
+  flex-shrink: 0; padding: 2px 5px; border-radius: 3px;
+  font-size: 9px; font-weight: 800; border: 1.5px solid transparent;
+  white-space: nowrap; min-width: 28px; text-align: center;
+  line-height: 1.4;
+}
+.ind-name { font-size: 10px; color: #4a5568; line-height: 1.4; flex: 1; }
+.su-flag { font-size: 9px; color: #276749; margin-left: 2px; flex-shrink: 0; line-height: 1.4; }
+#legend {
+  padding: 7px 13px; background: #f7fafc;
+  border-top: 1px solid #e2e8f0;
+  display: flex; flex-wrap: wrap; gap: 5px 12px; align-items: center;
+}
+.li { display: flex; align-items: center; gap: 4px; font-size: 10px; color: #4a5568; }
+.ls { width: 11px; height: 11px; border-radius: 2px; flex-shrink: 0; }
+.ldiv { width: 1px; height: 14px; background: #e2e8f0; }
+
+/* MODAL */
+#overlay {
+  display: none; position: fixed; inset: 0;
+  background: rgba(13,43,78,.55); z-index: 1000;
+  align-items: center; justify-content: center;
+  backdrop-filter: blur(2px);
+}
+#overlay.open { display: flex; }
+#modal {
+  background: white; border-radius: 12px; padding: 22px;
+  max-width: 430px; width: 92%;
+  box-shadow: 0 20px 60px rgba(0,0,0,.28); position: relative;
+}
+#mcls {
+  position: absolute; top: 11px; right: 13px;
+  background: none; border: none; font-size: 17px;
+  color: #a0aec0; cursor: pointer; line-height: 1;
+}
+#mcls:hover { color: #4a5568; }
+#mlayerbadge {
+  display: inline-block; padding: 2px 9px; border-radius: 10px;
+  font-size: 9px; font-weight: 700; color: white; margin-bottom: 8px;
+}
+#mcode { font-size: 30px; font-weight: 800; color: #0d2b4e; line-height: 1; margin-bottom: 5px; }
+#mname { font-size: 13px; font-weight: 600; color: #2d3748; margin-bottom: 8px; line-height: 1.4; }
+#mtags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 14px; }
+.mtag { padding: 2px 8px; border-radius: 8px; font-size: 10px; font-weight: 500; background: #edf2f7; color: #4a5568; }
+.mtag.sust { background: #f0fff4; color: #276749; border: 1px dashed #68d391; }
+#mslabel { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: #718096; margin-bottom: 7px; }
+#mscores { display: grid; grid-template-columns: repeat(4,1fr); gap: 7px; margin-bottom: 10px; }
+.sbtn {
+  padding: 10px 5px; border-radius: 7px; border: 2px solid transparent;
+  cursor: pointer; font-size: 11px; font-weight: 700;
+  text-align: center; line-height: 1.3; transition: all .15s;
+}
+.sbtn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,.15); }
+.sbtn.sel { box-shadow: 0 0 0 3px #63b3ed, 0 4px 10px rgba(0,0,0,.15); }
+.sbtn[data-s="1"] { background: #fff5f5; border-color: #e74c3c; color: #9b2335; }
+.sbtn[data-s="2"] { background: #fffaf0; border-color: #e67e22; color: #7b341e; }
+.sbtn[data-s="3"] { background: #f0fff4; border-color: #5dba7d; color: #276749; }
+.sbtn[data-s="4"] { background: #e6ffee; border-color: #1e8449; color: #1a4731; }
+#mguide { margin-bottom: 10px; }
+#mguide-label {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .5px; color: #718096; margin-bottom: 7px;
+}
+#mguide-body { display: block; }
+.gband {
+  display: flex; align-items: flex-start; gap: 7px;
+  padding: 6px 8px; border-radius: 6px; margin-bottom: 5px;
+  border: 1px solid transparent;
+}
+.gband:last-child { margin-bottom: 0; }
+.gband-n {
+  flex-shrink: 0; width: 17px; height: 17px; border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; font-weight: 800; color: white;
+}
+.gband-t { font-size: 10px; line-height: 1.35; flex: 1; }
+.gband[data-s="4"] { background: #e6ffee; border-color: #1e8449; }
+.gband[data-s="4"] .gband-n { background: #1e8449; }  .gband[data-s="4"] .gband-t { color: #1a4731; }
+.gband[data-s="3"] { background: #f0fff4; border-color: #5dba7d; }
+.gband[data-s="3"] .gband-n { background: #5dba7d; }  .gband[data-s="3"] .gband-t { color: #276749; }
+.gband[data-s="2"] { background: #fffaf0; border-color: #e67e22; }
+.gband[data-s="2"] .gband-n { background: #e67e22; }  .gband[data-s="2"] .gband-t { color: #7b341e; }
+.gband[data-s="1"] { background: #fff5f5; border-color: #e74c3c; }
+.gband[data-s="1"] .gband-n { background: #e74c3c; }  .gband[data-s="1"] .gband-t { color: #9b2335; }
+.gband.cur { box-shadow: 0 0 0 2px #63b3ed; }
+#mnabtn {
+  display: block; width: 100%; padding: 7px; border-radius: 6px;
+  border: 1.5px dashed #cbd5e0; background: #f7fafc;
+  color: #718096; font-size: 11px; font-weight: 600;
+  cursor: pointer; transition: all .15s; margin-bottom: 12px; text-align: center;
+}
+#mnabtn:hover { background: #edf2f7; }
+#mnabtn.sel { border-color: #90cdf4; background: #ebf8ff; color: #2b6cb0; }
+#mfoot { display: flex; justify-content: space-between; gap: 7px; }
+.mbtn {
+  padding: 8px 13px; border-radius: 6px; border: none;
+  font-size: 12px; font-weight: 600; cursor: pointer; transition: opacity .15s;
+}
+.mbtn:hover { opacity: .85; }
+.mbtn.pri { background: #0d2b4e; color: white; flex: 1; }
+.mbtn.sec { background: #edf2f7; color: #4a5568; }
+.mbtn.dan { background: #fff5f5; color: #9b2335; border: 1px solid #feb2b2; }
+.seg { cursor: pointer; transition: opacity .15s; }
+.seg:hover { opacity: .75; }
+</style>
+</head>
+<body>
+<div id="header">
+  <div id="header-left">
+    <h1>Layered Energy Resilience Framework for Bangladesh (LERF) · A Pre-Shock Diagnostic Tool</h1>
+    <p>28 Indicators · 5 Layers · 3 Resilience Properties + Sustainability</p>
+  </div>
+  <div id="header-right">
+    <div id="prog-box">
+      <div id="prog-count">0 / 28</div>
+      <div id="prog-label">indicators scored</div>
+      <div id="prog-bar"><div id="prog-fill"></div></div>
+    </div>
+    <button class="hbtn" onclick="resetAll()">↺ Reset</button>
+    <button class="hbtn" onclick="exportScores()">↓ Export JSON</button>
+  </div>
+</div>
+
+<div id="main">
+  <div id="ring-panel">
+    <svg id="ring-svg" viewBox="0 0 800 820" xmlns="http://www.w3.org/2000/svg">
+      <g id="rg"></g>
+    </svg>
+  </div>
+  <div id="right">
+    <div id="matrix-panel">
+      <h2>Assessment Matrix</h2>
+      <div id="mwrap"></div>
+    </div>
+    <div id="legend">
+      <div class="li"><div class="ls" style="background:#c0392b"></div>1 — Red (High risk)</div>
+      <div class="li"><div class="ls" style="background:#d4850a"></div>2 — Amber (Elevated)</div>
+      <div class="li"><div class="ls" style="background:#5dba7d"></div>3 — Light green (Adequate)</div>
+      <div class="li"><div class="ls" style="background:#1e8449"></div>4 — Green (Strong)</div>
+      <div class="ldiv"></div>
+      <div class="li" style="color:#276749">◆ Sustainability flag</div>
+      <div class="ldiv"></div>
+      <div class="li" style="color:#a0aec0;font-style:italic">Keys: 1–4 · Enter · Esc</div>
+    </div>
+  </div>
+</div>
+
+<div id="overlay" onclick="overlayClick(event)">
+  <div id="modal">
+    <button id="mcls" onclick="closeModal()">✕</button>
+    <div id="mlayerbadge"></div>
+    <div id="mcode"></div>
+    <div id="mname"></div>
+    <div id="mtags"></div>
+    <div id="mslabel">Score this indicator</div>
+    <div id="mscores">
+      <button class="sbtn" data-s="1" onclick="pickScore(1)">1<br><span style="font-weight:400;font-size:9px">High risk</span></button>
+      <button class="sbtn" data-s="2" onclick="pickScore(2)">2<br><span style="font-weight:400;font-size:9px">Elevated</span></button>
+      <button class="sbtn" data-s="3" onclick="pickScore(3)">3<br><span style="font-weight:400;font-size:9px">Adequate</span></button>
+      <button class="sbtn" data-s="4" onclick="pickScore(4)">4<br><span style="font-weight:400;font-size:9px">Strong</span></button>
+    </div>
+    <div id="mguide">
+      <div id="mguide-label">Scoring guide</div>
+      <div id="mguide-body"></div>
+    </div>
+    <button id="mnabtn" onclick="pickScore('N/A')">N/A — Not assessable</button>
+    <div id="mfoot">
+      <button class="mbtn sec" onclick="closeModal()">Cancel</button>
+      <button class="mbtn dan" onclick="clearScore()">Clear</button>
+      <button class="mbtn pri" onclick="confirmScore()">Confirm ↵</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const CX = 400, CY = 395;
+
+// Rings with 13px gaps; ring width 42px; outerR stays 324
+// R:62-104, gap 104-117, I:117-159, gap 159-172, O:172-214, gap 214-227, G:227-269, gap 269-282, S:282-324
+const LAYERS = [
+  { id:'R', name:'Resources',       iR: 62,  oR:104, col:'#0d2b4e', gMid:110.5 },
+  { id:'I', name:'Infrastructure',  iR:117,  oR:159, col:'#124d80', gMid:165.5 },
+  { id:'O', name:'Operations',      iR:172,  oR:214, col:'#1a6fa6', gMid:220.5 },
+  { id:'G', name:'Governance',      iR:227,  oR:269, col:'#4f8fc0', gMid:275.5 },
+  { id:'S', name:'Socio-Economic',  iR:282,  oR:324, col:'#8dc4e8', gMid:null  }
+];
+
+// Su 64° (148–212); Exposure 116° (302–418); Ad/Ab 90° each
+const SECTORS = [
+  { id:'E',  name:'Exposure',    s:302, e:418, la:0   },
+  { id:'Ad', name:'Adaptive',    s: 58, e:148, la:103 },
+  { id:'Su', name:'',            s:148, e:212, la:180 },
+  { id:'Ab', name:'Absorptive',  s:212, e:302, la:257 }
+];
+
+// p = ring sector position (for diagram placement)
+// op = original resilience property (for matrix placement)
+// n = full name (matrix), sn = short name (ring, 3–5 words)
+// vsn = very short name for Su strip (tight arc, ≤14 chars)
+const INDS = [
+  // Resources
+  { c:'R1', n:'Fuel, supplier & supply-chain concentration',          sn:'Fuel & Supply-Chain Concentration',     l:'R', p:'E',  op:'E',  su:false },
+  { c:'R2', n:'Domestic resource depletion trajectory',               sn:'Domestic Resource Depletion', l:'R', p:'E',  op:'E',  su:false },
+  { c:'R3', n:'Fuel stock buffer (days of cover)',                     sn:'Fuel stock buffer',             l:'R', p:'Ab', op:'Ab', su:false },
+  { c:'R4', n:'Supply diversification & fuel-switching capability',   sn:'Supply & Fuel-Switching Diversity', l:'R', p:'Ad', op:'Ad', su:false },
+  { c:'R5', n:'Carbon intensity & fossil lock-in',                    sn:'Carbon Intensity & Fossil Lock-In',                l:'R', p:'Su', op:'E',  su:true  },
+  // Infrastructure
+  { c:'I1', n:'Physical & environmental exposure of critical assets', sn:'Critical Asset Physical Exposure',       l:'I', p:'E',  op:'E',  su:false },
+  { c:'I2', n:'Network redundancy & reserve-margin adequacy',         sn:'Network Redundancy & Reserve Margin', l:'I', p:'Ab', op:'Ab', su:false },
+  { c:'I3', n:'Asset condition, maintenance & safety discipline',     sn:'Asset Condition, Maintenance & Safety', l:'I', p:'Ab', op:'Ab', su:false },
+  { c:'I4', n:'Modularity & distributed-generation penetration',      sn:'Modularity & Distributed Generation', l:'I', p:'Ad', op:'Ad', su:false },
+  { c:'I5', n:'Overcapacity, stranded-asset & lock-in exposure',      sn:'Overcapacity & Stranded Assets',           l:'I', p:'Su', op:'E',  su:true  },
+  // Operations
+  { c:'O1', n:'Fuel-procurement, FX & payment exposure of dispatch',  sn:'Fuel Procurement, FX & Payment',    l:'O', p:'E',  op:'E',  su:false },
+  { c:'O2', n:'Grid stability & balancing',                           sn:'Grid stability & balancing',    l:'O', p:'Ab', op:'Ab', su:false },
+  { c:'O3', n:'Emergency response & black-start capability',          sn:'Emergency Response & Black-Start',       l:'O', p:'Ab', op:'Ab', su:false },
+  { c:'O4', n:'Procurement & supply-chain effectiveness',             sn:'Procurement & Supply-Chain',     l:'O', p:'Ab', op:'Ab', su:false },
+  { c:'O5', n:'Monitoring, situational awareness & forecasting',      sn:'Monitoring & forecasting',      l:'O', p:'Ad', op:'Ad', su:false },
+  { c:'O6', n:'Workforce skill depth & transition readiness',         sn:'Workforce Skills & Transition',          l:'O', p:'Su', op:'Ad', su:true  },
+  // Governance
+  { c:'G1', n:'Institutional fragmentation & inter-agency coordination', sn:'Institutional coordination',    l:'G', p:'E',  op:'E',  su:false },
+  { c:'G2', n:'Policy & regulatory predictability',                   sn:'Policy & Regulatory Predictability', l:'G', p:'E',  op:'E',  su:false },
+  { c:'G3', n:'Transparency, accountability & corruption control',    sn:'Transparency & Corruption Control',                  l:'G', p:'Su', op:'E',  su:true  },
+  { c:'G4', n:'Regulatory independence & tariff-setting credibility', sn:'Regulatory Independence & Tariffs',       l:'G', p:'Ab', op:'Ab', su:false },
+  { c:'G5', n:'Fiscal & subsidy sustainability',                      sn:'Fiscal & Subsidy Sustainability',                  l:'G', p:'Su', op:'Ab', su:true  },
+  { c:'G6', n:'Strategic planning & resilience-investment mobilisation', sn:'Strategic planning & investment', l:'G', p:'Ad', op:'Ad', su:false },
+  { c:'G7', n:'Institutional learning & emergency coordination',      sn:'Institutional Learning & Coordination',        l:'G', p:'Ad', op:'Ad', su:false },
+  // Socio-Economic
+  { c:'S1', n:'Affordability & energy-expenditure burden',            sn:'Affordability & Expenditure Burden',          l:'S', p:'Su', op:'E',  su:true  },
+  { c:'S2', n:'Spatial & urban-rural access differentials',           sn:'Urban-Rural Access Differentials',  l:'S', p:'E',  op:'E',  su:false },
+  { c:'S3', n:'Demand-side flexibility & backup substitutability',    sn:'Demand flexibility & backup',   l:'S', p:'Ab', op:'Ab', su:false },
+  { c:'S4', n:'Community & decentralised coping capacity',            sn:'Community coping capacity',     l:'S', p:'Ad', op:'Ad', su:false },
+  { c:'S5', n:'Energy efficiency & demand-management orientation',    sn:'Energy Efficiency & Demand Management',    l:'S', p:'Su', op:'Ad', su:true  }
+];
+
+const SCOL = { 1:'#c0392b', 2:'#d4850a', 3:'#5dba7d', 4:'#1e8449', 'N/A':'#a0aec0' };
+const SLAB = { 1:'Red', 2:'Amber', 3:'Light Green', 4:'Green', 'N/A':'N/A' };
+
+// Scoring criteria — band descriptions per indicator. Polarity fixed: 4 = favourable, 1 = red-alert.
+const CRIT = {
+  R1:{4:'Many fuels & suppliers, diversified vendors/financiers, no shared failure mode',3:'Workable diversity but one fuel/supplier/partner carries much of the load',2:'One fuel, one–two suppliers, or a single vendor/financier dominates',1:'Near-total dependence on one source, no ready substitute'},
+  R2:{4:'Reserves stable/replenished, long horizon',3:'Gradual decline, secure medium-term',2:'Visible decline, rising import reliance',1:'Steep depletion, domestic supply failing within a short horizon'},
+  R3:{4:'Comfortable cover across coal/oil/LNG',3:'Adequate for most fuels, thin for one',2:'Low cover, short interruptions force rationing',1:'Almost no buffer, any gap causes immediate shortfall'},
+  R4:{4:'Switches readily, real renewable headroom, interconnection fails independently',3:'Some switching but slow or partly shared failure mode',2:'Limited switching, few independent alternatives',1:'Locked to one fuel/route, no independent alternative'},
+  R5:{4:'Low & falling intensity, options open',3:'Moderate, transition on track',2:'High, recent choices extend fossil dependence',1:'Very high, heavy new lock-in foreclosing transition'},
+  I1:{4:'Dispersed & hazard-hardened, any node survivable',3:'Mostly resilient, a few exposed/concentrated nodes',2:'Several critical assets in hazard zones, rising long-term exposure',1:'Core capacity clustered in high-hazard areas, hinging on one–two nodes'},
+  I2:{4:'Healthy usable reserve, well-meshed, reserve not sharing primary fuel',3:'Adequate redundancy under most conditions',2:'Thin redundancy, or spare shares the same gas supply',1:'Little usable spare or routing, single failures cause outages'},
+  I3:{4:'Modern, well-maintained, low loss, sound safety',3:'Mixed age, losses near regional norms',2:'Ageing assets, elevated losses, weak maintenance/safety',1:'Heavily degraded, high losses, chronic faults & fire risk'},
+  I4:{4:'Significant distributed capacity able to run islanded',3:'Growing distributed share, limited islanding',2:'Largely centralised, token distributed capacity',1:'Fully centralised, no fallback if the grid fails'},
+  I5:{4:'Reserve achieved efficiently, little idle/rental, low stranding',3:'Some surplus or rental reliance, manageable',2:'Notable reliance on costly idle/rental plant, rising liabilities',1:'Reliability dependent on heavy rental/overcapacity, large stranding exposure'},
+  O1:{4:'Dispatch insulated from currency & arrears, secure contracts',3:'Some spot/FX/payment exposure, manageable',2:'Significant spot reliance or growing arrears',1:'Generation interrupted because the system cannot pay for fuel'},
+  O2:{4:'Stable frequency/voltage, ample reserve & inertia',3:'Generally stable, strain at peaks or high renewables',2:'Frequent excursions, thin inertia, limited room for a large trip',1:'Chronically unstable, a large loss risks cascading failure'},
+  O3:{4:'Tested black-start & rehearsed restoration plans',3:'Capability exists but partly untested',2:'Limited/uncertain black-start, ad hoc restoration',1:'No reliable black-start, slow improvised restoration'},
+  O4:{4:'Timely procurement, reliable spares, quality-based selection',3:'Occasional delays, generally adequate quality',2:'Frequent delays or low-bid quality problems idling plant',1:'Chronic procurement failure, substandard equipment, stranded works'},
+  O5:{4:'Wide real-time coverage & reliable forecasting',3:'Reasonable visibility, some blind spots',2:'Patchy monitoring, weak forecasting',1:'Little real-time visibility, operators react after the fact'},
+  O6:{4:'Deep, renewing skills base, ready for new technologies',3:'Adequate skills, some gaps in newer areas',2:'Thin skills, reliant on a few individuals/contractors',1:'Severe shortages, maintenance & transition capability at risk'},
+  G1:{4:'Clear mandates, effective cross-agency coordination',3:'Generally workable, some overlaps or slow handoffs',2:'Notable fragmentation, coordination weak under stress',1:'Conflicting mandates, no effective coordination in a crisis'},
+  G2:{4:'Stable, transparent rules, consistently applied',3:'Broadly predictable, occasional shifts',2:'Frequent changes, reliance on special measures',1:'Erratic policy & extraordinary instruments undermine planning'},
+  G3:{4:'High transparency, strong accountability, low corruption',3:'Reasonable openness, weak spots',2:'Limited transparency, accountability often evaded',1:'Pervasive opacity or corruption distorting decisions'},
+  G4:{4:'Independent regulator, cost-reflective trusted tariffs',3:'Mostly independent, some political influence',2:'Limited autonomy, tariffs often overridden',1:'Regulator effectively captured, decisions not credible'},
+  G5:{4:'Reliability costs modest & sustainable, long-tail provisioned',3:'Manageable but rising, some unprovisioned liabilities',2:'Heavy subsidy/capacity burden straining budgets',1:'Obligations fiscally unsustainable, crowding out other spending'},
+  G6:{4:'Strong scenario planning, coherent, good finance access',3:'Some planning & finance, coherence patchy',2:'Weak short-horizon planning, limited finance',1:'No forward planning, cannot mobilise resilience investment'},
+  G7:{4:'Clear learning & coordination that works under stress',3:'Some learning & coordination, inconsistent',2:'Formal structures exist but function poorly, weak follow-through',1:'No effective learning, the same failures recur'},
+  S1:{4:'Affordable across groups, costs shared fairly',3:'Broadly affordable, strain for the poorest',2:'High burden on lower-income, adjustment costs fall on them',1:'Unaffordable for large segments, severe regressive burden'},
+  S2:{4:'Reliable, near-equal access everywhere',3:'Minor urban-rural or regional gaps',2:'Marked gaps, rural/remote notably worse served',1:'Severe inequality, some areas with poor or no reliable supply'},
+  S3:{4:'Strong demand response, clean well-distributed backup',3:'Some flexibility & backup, unevenly spread',2:'Limited flexibility, backup mostly diesel & patchy',1:'Little ability to shift demand, shortages become outages'},
+  S4:{4:'Widespread local coping options & support',3:'Some community capacity in places',2:'Sparse, uneven local coping',1:'Communities wholly dependent on central supply, no fallback'},
+  S5:{4:'Active programmes meaningfully curbing demand growth',3:'Some efficiency effort, supply expansion still dominant',2:'Minimal efficiency focus, demand met by new supply',1:'No demand-side strategy, reliance on costly carbon-heavy growth'}
+};
+
+const scores = {};
+INDS.forEach(i => scores[i.c] = null);
+let mCode = null, pending = undefined;
+
+// ── SVG HELPERS ───────────────────────────────────────────────────────────────
+const NS = 'http://www.w3.org/2000/svg';
+function xy(a, r) {
+  const rad = (a - 90) * Math.PI / 180;
+  return { x: CX + r * Math.cos(rad), y: CY + r * Math.sin(rad) };
+}
+function arc(r1, r2, sa, ea) {
+  const lg = (ea - sa) > 180 ? 1 : 0, f = v => v.toFixed(2);
+  const a = xy(sa,r1), b = xy(ea,r1), c = xy(ea,r2), d = xy(sa,r2);
+  return `M${f(a.x)},${f(a.y)} A${r1},${r1},0,${lg},1,${f(b.x)},${f(b.y)} L${f(c.x)},${f(c.y)} A${r2},${r2},0,${lg},0,${f(d.x)},${f(d.y)} Z`;
+}
+function el(tag, at) {
+  const e = document.createElementNS(NS, tag);
+  Object.entries(at).forEach(([k,v]) => e.setAttribute(k,v)); return e;
+}
+function svgtxt(s, at) { const e = el('text',at); e.textContent = s; return e; }
+
+function textRot(midAngle, x, y) {
+  const a = ((midAngle % 360) + 360) % 360;
+  let r = a;
+  if (a > 90 && a < 270) r += 180;
+  return `rotate(${r.toFixed(1)},${x.toFixed(2)},${y.toFixed(2)})`;
+}
+
+function segFill(code) {
+  const sc = scores[code];
+  if (sc === null) return LAYERS.find(l => l.id === INDS.find(i=>i.c===code).l).col;
+  return SCOL[sc];
+}
+
+// Font sizes by layer index (ring order R→S)
+const FS = [7.5, 8, 8.5, 9, 9.5];
+
+// ── RENDER RING ───────────────────────────────────────────────────────────────
+function renderRing() {
+  const g = document.getElementById('rg'); g.innerHTML = '';
+  const defs = el('defs', {}); g.appendChild(defs);
+
+  // Build cell map
+  const cells = {};
+  LAYERS.forEach(l => SECTORS.forEach(s => cells[l.id+s.id]=[]));
+  INDS.forEach(i => cells[i.l+i.p].push(i.c));
+
+  // Draw segments
+  LAYERS.forEach((layer, li) => {
+    SECTORS.forEach(sec => {
+      const inds = cells[layer.id+sec.id];
+      if (!inds.length) return;
+      const span = (sec.e - sec.s) / inds.length;
+
+      inds.forEach((code, idx) => {
+        const ind = INDS.find(x=>x.c===code);
+        const sa = sec.s + idx*span, ea = sec.s + (idx+1)*span;
+        const sc = scores[code];
+        const fill = segFill(code);
+        const pathD = arc(layer.iR, layer.oR, sa, ea);
+
+        // Clip path for text containment
+        const clipId = `cp-${code}`;
+        const cp = el('clipPath', {'id': clipId});
+        cp.appendChild(el('path', {'d': pathD}));
+        defs.appendChild(cp);
+
+        // Arc segment
+        const path = el('path', {
+          d: pathD, fill,
+          stroke: 'white', 'stroke-width': sec.id==='Su' ? '1.8' : '1.2',
+          class: 'seg', 'data-code': code
+        });
+        if (sec.id === 'Su' && sc === null) {
+          path.setAttribute('stroke', '#68d391');
+          path.setAttribute('stroke-width', '2');
+        }
+        const tip = document.createElementNS(NS,'title');
+        tip.textContent = `${code}: ${ind.n}\nLayer: ${layer.name} | Property: ${sec.id==='Su'?'Sustainability ('+SECTORS.find(s=>s.id===ind.op)?.name+')':sec.name}`;
+        path.appendChild(tip);
+        path.addEventListener('click', ()=>openModal(code));
+        g.appendChild(path);
+
+        // Label text — curved along arc, wrapped to two lines when too long
+        const midA = (sa+ea)/2, midR = (layer.iR+layer.oR)/2;
+        const fs = FS[li];
+        const textFill = sc!==null ? 'white' : (layer.id==='S' ? '#0d2b4e' : 'white');
+        const labelText = ind.sn.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+        const lower = (((midA % 360) + 360) % 360) > 90 && (((midA % 360) + 360) % 360) < 270;
+
+        // Arc path at radius r, direction chosen so text reads right-side-up
+        const mkArcPath = (r, id) => {
+          const span = Math.max(ea - sa, 24);
+          const s1 = midA - span/2, e1 = midA + span/2;
+          let d;
+          if (lower) {
+            const p1 = xy(e1, r), p2 = xy(s1, r);
+            d = `M${p1.x.toFixed(2)},${p1.y.toFixed(2)} A${r},${r},0,0,0,${p2.x.toFixed(2)},${p2.y.toFixed(2)}`;
+          } else {
+            const p1 = xy(s1, r), p2 = xy(e1, r);
+            d = `M${p1.x.toFixed(2)},${p1.y.toFixed(2)} A${r},${r},0,0,1,${p2.x.toFixed(2)},${p2.y.toFixed(2)}`;
+          }
+          defs.appendChild(el('path', { id, d }));
+        };
+
+        // Wrap to 2 lines if estimated width exceeds the cell's arc length
+        const cellArc = (ea - sa) * Math.PI / 180 * midR;
+        let lines = [labelText];
+        if (labelText.length * fs * 0.58 > cellArc * 0.94) {
+          const words = labelText.split(' ');
+          if (words.length > 1) {
+            let best = 1, bestDiff = Infinity;
+            for (let k = 1; k < words.length; k++) {
+              const diff = Math.abs(words.slice(0,k).join(' ').length - words.slice(k).join(' ').length);
+              if (diff < bestDiff) { bestDiff = diff; best = k; }
+            }
+            lines = [words.slice(0,best).join(' '), words.slice(best).join(' ')];
+          }
+        }
+
+        // Line radii: first line is visually above the second
+        const off = fs * 0.62;
+        const lineRs = lines.length === 2
+          ? (lower ? [midR - off, midR + off] : [midR + off, midR - off])
+          : [midR];
+
+        lines.forEach((ln, lnIdx) => {
+          const tpId = `tp-${code}-${lnIdx}`;
+          mkArcPath(lineRs[lnIdx], tpId);
+          const tEl = el('text', {
+            'font-size': fs, 'font-weight': '600', fill: textFill,
+            'text-anchor': 'middle', 'pointer-events': 'none',
+            'clip-path': `url(#${clipId})`,
+            'font-family': "'Segoe UI',system-ui,sans-serif",
+            dy: '0.35em'
+          });
+          const tpEl = el('textPath', { href: `#${tpId}`, startOffset: '50%' });
+          tpEl.textContent = ln;
+          tEl.appendChild(tpEl);
+          g.appendChild(tEl);
+        });
+      });
+    });
+  });
+
+  // ── SECTOR BOUNDARY LINES ─────────────────────────────────────────────────
+  const outerR = LAYERS[4].oR; // 324
+  [58, 302].forEach(a => {
+    const p2 = xy(a, outerR + 30);
+    g.appendChild(el('line', {
+      x1: CX, y1: CY, x2: p2.x.toFixed(2), y2: p2.y.toFixed(2),
+      stroke: '#0d2b4e', 'stroke-width': '2.5', 'pointer-events':'none'
+    }));
+  });
+  [148, 212].forEach(a => {
+    const p2 = xy(a, outerR + 30);
+    g.appendChild(el('line', {
+      x1: CX, y1: CY, x2: p2.x.toFixed(2), y2: p2.y.toFixed(2),
+      stroke: '#27ae60', 'stroke-width': '2', 'pointer-events':'none'
+    }));
+  });
+
+  // ── CENTRE HUB ────────────────────────────────────────────────────────────
+  g.appendChild(el('circle', {cx:CX,cy:CY,r:60,fill:'white','pointer-events':'none'}));
+  g.appendChild(el('circle', {cx:CX,cy:CY,r:55,fill:'none',stroke:'#0d2b4e','stroke-width':'1','stroke-opacity':'.25','pointer-events':'none'}));
+  g.appendChild(svgtxt('LERF', {x:CX,y:CY-9,'text-anchor':'middle','dominant-baseline':'central','font-size':'16','font-weight':'800','letter-spacing':'1.5',fill:'#0d2b4e','pointer-events':'none','font-family':"'Segoe UI',system-ui,sans-serif"}));
+  g.appendChild(svgtxt('Bangladesh', {x:CX,y:CY+10,'text-anchor':'middle','dominant-baseline':'central','font-size':'9',fill:'#718096','pointer-events':'none','font-family':"'Segoe UI',system-ui,sans-serif"}));
+
+  // ── LAYER NAME LABELS curved at top (0° = north) ─────────────────────────
+  LAYERS.forEach((layer, li) => {
+    const labelR = layer.gMid || (layer.oR + 11);
+    const spanDeg = 68;
+    const ltpId = `ltp-${layer.id}`;
+    const lp1 = xy(-spanDeg / 2, labelR), lp2 = xy(spanDeg / 2, labelR);
+    const ltpD = `M${lp1.x.toFixed(2)},${lp1.y.toFixed(2)} A${labelR},${labelR},0,0,1,${lp2.x.toFixed(2)},${lp2.y.toFixed(2)}`;
+    defs.appendChild(el('path', { id: ltpId, d: ltpD }));
+
+    const fill2 = li < 3 ? layer.col : (li === 3 ? '#2b6ba8' : '#1a3a5c');
+    const ltEl = el('text', {
+      'font-size': '10', 'font-weight': '800', fill: fill2,
+      'text-anchor': 'middle', 'pointer-events': 'none',
+      'font-family': "'Segoe UI',system-ui,sans-serif", dy: '0.35em',
+      stroke: 'white', 'stroke-width': '3', 'paint-order': 'stroke fill'
+    });
+    const ltpEl = el('textPath', { href: `#${ltpId}`, startOffset: '50%' });
+    ltpEl.textContent = layer.name;
+    ltEl.appendChild(ltpEl);
+    g.appendChild(ltEl);
+  });
+
+  // ── SECTOR LABELS outside ring ────────────────────────────────────────────
+  const labelR = outerR + 42;
+  [{la:0, name:'Exposure'}, {la:103, name:'Adaptive'}, {la:257, name:'Absorptive'}].forEach(({la, name}) => {
+    const lp = xy(la, labelR);
+    g.appendChild(svgtxt(name, {
+      x:lp.x.toFixed(2), y:lp.y.toFixed(2),
+      'text-anchor':'middle','dominant-baseline':'central',
+      'font-size':'12','font-weight':'800',fill:'#1a3a5c',
+      'pointer-events':'none','font-family':"'Segoe UI',system-ui,sans-serif"
+    }));
+  });
+
+  // ── SUSTAINABILITY ANNOTATION ─────────────────────────────────────────────
+  const sbY = CY + outerR + 46;
+  const stripTip = xy(180, outerR + 4);
+  g.appendChild(el('rect',{x:CX-72,y:sbY-12,width:144,height:24,rx:5,fill:'#f0fff4',stroke:'#27ae60','stroke-width':'1.5','pointer-events':'none'}));
+  g.appendChild(svgtxt('◆ Sustainability Indicators',{
+    x:CX,y:sbY,'text-anchor':'middle','dominant-baseline':'central',
+    'font-size':'9.5','font-weight':'600',fill:'#276749',
+    'pointer-events':'none','font-family':"'Segoe UI',system-ui,sans-serif"
+  }));
+}
+
+// ── RENDER MATRIX ─────────────────────────────────────────────────────────────
+function renderMatrix() {
+  const wrap = document.getElementById('mwrap');
+  const tbl = document.createElement('table'); tbl.id = 'mt';
+
+  const thead = tbl.createTHead(), hr = thead.insertRow();
+  const colOrder = ['E','Ad','Ab'];
+  const colLabel = { E:'Exposure', Ad:'Adaptive', Ab:'Absorptive' };
+  const th0 = document.createElement('th'); th0.textContent='Layer'; hr.appendChild(th0);
+  colOrder.forEach(sid => {
+    const th = document.createElement('th');
+    th.textContent = colLabel[sid]; hr.appendChild(th);
+  });
+
+  const tbody = tbl.createTBody();
+  LAYERS.forEach(layer => {
+    const tr = tbody.insertRow();
+    const ntd = tr.insertCell(); ntd.className='lname'; ntd.style.background=layer.col; ntd.textContent=layer.name;
+
+    colOrder.forEach(sid => {
+      const td = tr.insertCell();
+      // Use original property (op) for matrix placement
+      const inds = INDS.filter(i=>i.l===layer.id && i.op===sid);
+      inds.forEach(ind => {
+        const row = document.createElement('div');
+        row.className = ind.su ? 'ind-row su-row' : 'ind-row';
+        row.setAttribute('data-code', ind.c);
+        row.onclick = ()=>openModal(ind.c);
+
+        const badge = document.createElement('span'); badge.className='ind-code';
+        badge.setAttribute('data-code', ind.c); badge.textContent=ind.c;
+        styleBadge(badge, ind.c);
+
+        const name = document.createElement('span');
+        name.className = 'ind-name'; name.textContent = ind.n;
+
+        row.appendChild(badge); row.appendChild(name);
+        if (ind.su) {
+          const flag = document.createElement('span'); flag.className='su-flag'; flag.textContent='◆';
+          row.appendChild(flag);
+        }
+        td.appendChild(row);
+      });
+    });
+  });
+
+  wrap.innerHTML = ''; wrap.appendChild(tbl);
+}
+
+function styleBadge(b, code) {
+  const sc = scores[code];
+  const ind = INDS.find(i=>i.c===code);
+  if (sc===null) {
+    if (ind.su) { b.style.cssText='background:#f0fff4;color:#276749;border-color:#68d391;border-style:dashed;border-width:1.5px'; }
+    else        { b.style.cssText='background:#edf2f7;color:#4a5568;border-color:#e2e8f0;border-style:solid;border-width:1.5px'; }
+  } else if (sc==='N/A') { b.style.cssText='background:#f7fafc;color:#718096;border-color:#cbd5e0;border-style:solid;border-width:1.5px'; }
+  else if (sc===1) { b.style.cssText='background:#fff5f5;color:#9b2335;border-color:#e74c3c;border-style:solid;border-width:1.5px'; }
+  else if (sc===2) { b.style.cssText='background:#fffaf0;color:#7b341e;border-color:#e67e22;border-style:solid;border-width:1.5px'; }
+  else if (sc===3) { b.style.cssText='background:#f0fff4;color:#276749;border-color:#5dba7d;border-style:solid;border-width:1.5px'; }
+  else if (sc===4) { b.style.cssText='background:#e6ffee;color:#1a4731;border-color:#1e8449;border-style:solid;border-width:1.5px'; }
+}
+
+function refreshBadges() {
+  document.querySelectorAll('.ind-code[data-code]').forEach(b=>styleBadge(b,b.getAttribute('data-code')));
+}
+
+function refreshProgress() {
+  const n = INDS.filter(i=>scores[i.c]!==null).length;
+  document.getElementById('prog-count').textContent=n+' / 28';
+  document.getElementById('prog-fill').style.width=(n/28*100)+'%';
+}
+
+// ── MODAL ─────────────────────────────────────────────────────────────────────
+function openModal(code) {
+  mCode=code; pending=scores[code];
+  const ind=INDS.find(i=>i.c===code);
+  const layer=LAYERS.find(l=>l.id===ind.l);
+  const propName = ind.p==='Su' ? 'Sustainability' : SECTORS.find(s=>s.id===ind.p).name;
+  const lb=document.getElementById('mlayerbadge');
+  lb.textContent=layer.name; lb.style.background=layer.col;
+  document.getElementById('mcode').textContent=ind.c;
+  document.getElementById('mname').textContent=ind.n;
+  document.getElementById('mtags').innerHTML=
+    `<span class="mtag">${propName}</span>`+
+    (ind.su?`<span class="mtag sust">◆ Sustainability flag · originally ${SECTORS.find(s=>s.id===ind.op)?.name||ind.op}</span>`:'');
+
+  // Scoring guide + button tooltips
+  const crit = CRIT[code] || {};
+  document.getElementById('mguide-body').innerHTML = [4,3,2,1].map(s=>
+    `<div class="gband" data-s="${s}"><span class="gband-n">${s}</span><span class="gband-t">${crit[s]||''}</span></div>`
+  ).join('');
+  document.querySelectorAll('.sbtn').forEach(b=>{
+    const s=parseInt(b.getAttribute('data-s'));
+    b.title = crit[s] ? `${s} — ${crit[s]}` : '';
+  });
+  syncModal();
+  document.getElementById('overlay').classList.add('open');
+}
+function syncModal() {
+  document.querySelectorAll('.sbtn').forEach(b=>b.classList.toggle('sel',parseInt(b.getAttribute('data-s'))===pending));
+  document.getElementById('mnabtn').classList.toggle('sel',pending==='N/A');
+  document.querySelectorAll('.gband').forEach(b=>b.classList.toggle('cur',parseInt(b.getAttribute('data-s'))===pending));
+}
+function pickScore(s){ pending=s; syncModal(); }
+function confirmScore(){ if(mCode===null) return; if(pending!==undefined){ scores[mCode]=pending; refresh(); } closeModal(); }
+function clearScore(){ if(mCode===null) return; scores[mCode]=null; pending=null; syncModal(); refresh(); closeModal(); }
+function closeModal(){ document.getElementById('overlay').classList.remove('open'); mCode=null; pending=undefined; }
+function overlayClick(e){ if(e.target===document.getElementById('overlay')) closeModal(); }
+function refresh(){ refreshProgress(); renderRing(); refreshBadges(); }
+
+// ── RESET / EXPORT ────────────────────────────────────────────────────────────
+function resetAll(){ if(!confirm('Reset all 28 scores?')) return; INDS.forEach(i=>scores[i.c]=null); refresh(); }
+function exportScores(){
+  const out={tool:'LERF Diagnostic Tool — Bangladesh',date:new Date().toISOString().slice(0,10),scored:INDS.filter(i=>scores[i.c]!==null).length,total:28,scores:{}};
+  INDS.forEach(i=>{
+    const opSec = SECTORS.find(s=>s.id===i.op);
+    const sv=scores[i.c];
+    out.scores[i.c]={
+      name:i.n, layer:LAYERS.find(l=>l.id===i.l).name,
+      property: opSec ? opSec.name : i.op,
+      sustainability_flag:i.su, score:sv,
+      label:sv!==null?SLAB[sv]:'Unscored',
+      criterion:(sv!==null && sv!=='N/A' && CRIT[i.c])?CRIT[i.c][sv]:null
+    };
+  });
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(out,null,2)],{type:'application/json'}));
+  a.download=`LERF_scores_${out.date}.json`; a.click();
+}
+
+// ── KEYBOARD ──────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e=>{
+  const open=document.getElementById('overlay').classList.contains('open');
+  if(e.key==='Escape'){ closeModal(); return; }
+  if(!open) return;
+  if(['1','2','3','4'].includes(e.key)){ pickScore(parseInt(e.key)); return; }
+  if(e.key==='Enter'){ e.preventDefault(); confirmScore(); }
+});
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+renderRing(); renderMatrix(); refreshProgress();
+</script>
+</body>
+</html>
